@@ -30,7 +30,6 @@ import {
   parseCheckoutErrorBody,
   snapshotUpstreamResponse,
   type CheckoutError,
-  type CheckoutErrorBody,
   type CheckoutErrorCode,
   type UpstreamSnapshot,
 } from './checkout-errors';
@@ -46,6 +45,7 @@ import {
 } from './checkout-banner-state';
 import { loadActiveReferral } from './referral-capture';
 import { showDuplicateSubscriptionDialog } from './checkout-duplicate-dialog';
+import { showCheckoutPendingDialog } from './checkout-pending-dialog';
 import { resolvePlanDisplayName } from './checkout-plan-names';
 import { createEntitlementWatchdog, type EntitlementWatchdog } from './entitlement-watchdog';
 import { buildDashboardCheckoutReturnUrl } from './checkout-return-url';
@@ -741,7 +741,7 @@ let _checkoutInFlight = false;
  */
 export async function startCheckout(
   productId: string,
-  options?: { discountCode?: string; referralCode?: string },
+  options?: { discountCode?: string; referralCode?: string; bypassPendingGuard?: boolean },
   behavior?: { fallbackToPricingPage?: boolean },
 ): Promise<boolean> {
   if (_checkoutInFlight) return false;
@@ -818,6 +818,9 @@ export async function startCheckout(
         returnUrl: buildDashboardCheckoutReturnUrl(window.location.origin),
         discountCode: options?.discountCode,
         referralCode: effectiveReferral,
+        // #4438: only set when the user confirmed "start a new checkout anyway"
+        // from the pending-payment dialog. Skips the backend pending guard.
+        ...(options?.bypassPendingGuard ? { bypassPendingGuard: true } : {}),
       }),
       signal: AbortSignal.timeout(15_000),
     });
@@ -847,8 +850,7 @@ export async function startCheckout(
       if (error.code === 'duplicate_subscription') {
         clearPendingCheckoutIntent();
         clearCheckoutAttempt('duplicate');
-        const planKey = (body as CheckoutErrorBody & { subscription?: { planKey?: unknown } })
-          ?.subscription?.planKey;
+        const planKey = body?.subscription?.planKey;
         const planDisplayName = resolvePlanDisplayName(planKey);
         showDuplicateSubscriptionDialog({
           planDisplayName,
@@ -863,6 +865,28 @@ export async function startCheckout(
             void openBillingPortal(reservedWin);
           },
           onDismiss: () => { /* user stays on the dashboard */ },
+        });
+        return false;
+      }
+      // 409 payment-in-progress (#4438) — a recent same-tier 3DS payment is
+      // still pending. Confirm BEFORE starting a duplicate: the pending one may
+      // still be completing. Do NOT clear the attempt (the flow is recoverable —
+      // unlike the duplicate-subscription path). On confirm, re-invoke with
+      // bypassPendingGuard so the backend skips this guard and the redirect
+      // proceeds. Dialog content uses only the whitelisted plan name.
+      if (error.code === 'payment_in_progress') {
+        const pendingPlanKey = body?.pendingPayment?.planKey;
+        const planDisplayName = resolvePlanDisplayName(pendingPlanKey);
+        showCheckoutPendingDialog({
+          planDisplayName,
+          onConfirm: () => {
+            void startCheckout(
+              productId,
+              { ...options, bypassPendingGuard: true },
+              behavior,
+            );
+          },
+          onDismiss: () => { /* user stays put; pending payment may still complete */ },
         });
         return false;
       }
