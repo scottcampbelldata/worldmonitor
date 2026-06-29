@@ -16,13 +16,28 @@ export interface AuthSession {
   isPending: boolean;
 }
 
-let _currentSession: AuthSession = { user: null, isPending: true };
+// Self-hosted instance: there is no hosted Clerk login backend. Present a
+// synthetic signed-in Pro user so account-gated features (MCP connectors,
+// custom widgets, anything that otherwise says "sign in at our website") work
+// without a hosted account. Remove this and restore the null/Clerk default to
+// re-enable real sign-in.
+const SELF_HOST_USER: AuthUser = {
+  id: 'self-host-owner',
+  name: 'Owner',
+  email: '',
+  image: null,
+  role: 'pro',
+};
+
+let _currentSession: AuthSession = { user: SELF_HOST_USER, isPending: false };
 
 function snapshotSession(): AuthSession {
   const cu = getCurrentClerkUser();
   if (!cu) {
-    enqueueSentryCall((s) => s.setUser(null));
-    return { user: null, isPending: false };
+    // No Clerk user (self-host) — fall back to the synthetic owner instead of
+    // a signed-out session so account-gated UI stays unlocked.
+    enqueueSentryCall((s) => s.setUser({ id: SELF_HOST_USER.id }));
+    return { user: SELF_HOST_USER, isPending: false };
   }
   enqueueSentryCall((s) => s.setUser({ id: cu.id }));
   return {
@@ -31,7 +46,7 @@ function snapshotSession(): AuthSession {
       name: cu.name,
       email: cu.email,
       image: cu.image,
-      role: cu.plan,
+      role: 'pro', // self-host: treat any signed-in user as Pro
     },
     isPending: false,
   };
