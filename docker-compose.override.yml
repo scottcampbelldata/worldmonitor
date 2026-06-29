@@ -1,0 +1,63 @@
+# ============================================================
+# World Monitor — deploy override (server)  [gitignored]
+# ============================================================
+# Adds the API keys that the BASE docker-compose.yml does NOT already wire in,
+# so every Tier-1/Tier-2 data key actually reaches the container at runtime.
+#
+# How keys get here: put values in a `.env` file next to this one on the server
+# (docker compose auto-loads `.env`). Each ${VAR:-} below reads from that .env.
+# Then:  docker compose up -d --build
+#
+# The base compose already passes: GROQ, OPENROUTER, AISSTREAM, FINNHUB, EIA,
+# FRED, ACLED_*, NASA_FIRMS, CLOUDFLARE, AVIATIONSTACK, TRAVELPAYOUTS, LLM_*.
+# This file adds the rest.
+# ============================================================
+
+services:
+  worldmonitor:
+    environment:
+      # --- Split-deploy: production mode + allow the Cloudflare Pages origin ---
+      # CORS allowlist is tight by default (*.worldmonitor.app); EXTRA_CORS_ORIGINS
+      # (read by the patched api/_cors.js) lets your frontend host through.
+      NODE_ENV: "${NODE_ENV:-production}"
+      EXTRA_CORS_ORIGINS: "${EXTRA_CORS_ORIGINS:-}"
+
+      # --- Markets (extra) ---
+      ALPHA_VANTAGE_API_KEY: "${ALPHA_VANTAGE_API_KEY:-}"
+      COINGECKO_DEMO_API_KEY: "${COINGECKO_DEMO_API_KEY:-}"
+
+      # --- Cyber threat layer ---
+      ABUSEIPDB_API_KEY: "${ABUSEIPDB_API_KEY:-}"
+      OTX_API_KEY: "${OTX_API_KEY:-}"
+      URLHAUS_AUTH_KEY: "${URLHAUS_AUTH_KEY:-}"
+
+      # --- Air quality ---
+      OPENAQ_API_KEY: "${OPENAQ_API_KEY:-}"
+      WAQI_API_KEY: "${WAQI_API_KEY:-}"
+
+      # --- Conflict (extra) ---
+      UCDP_ACCESS_TOKEN: "${UCDP_ACCESS_TOKEN:-}"
+
+      # --- Energy / trade (EU + global) ---
+      ENTSO_E_TOKEN: "${ENTSO_E_TOKEN:-}"
+      GIE_API_KEY: "${GIE_API_KEY:-}"
+      COMTRADE_API_KEYS: "${COMTRADE_API_KEYS:-}"
+
+      # --- Climate / search / misc ---
+      WINDY_API_KEY: "${WINDY_API_KEY:-}"
+      EXA_API_KEYS: "${EXA_API_KEYS:-}"
+      RELIEFWEB_APPNAME: "${RELIEFWEB_APPNAME:-}"
+
+      # --- Optional: your Anthropic key for higher-quality briefs/forecasts ---
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+
+  ais-relay:
+    environment:
+      # Aircraft tracking (OpenSky) — the relay handles flights too
+      OPENSKY_CLIENT_ID: "${OPENSKY_CLIENT_ID:-}"
+      OPENSKY_CLIENT_SECRET: "${OPENSKY_CLIENT_SECRET:-}"
+
+# NOTE: VITE_* flags (e.g. VITE_ENABLE_CYBER_LAYER) are BUILD-TIME, baked into
+# the frontend during `docker build`. Setting them here as runtime env has no
+# effect. To flip them for the Docker image we pass them as build args — handled
+# in the deploy runbook, not here.

@@ -16,6 +16,14 @@ const ALLOWED_ORIGIN_PATTERNS = [
   ]),
 ];
 
+// Self-hosted extra origins (comma-separated full origins) from EXTRA_CORS_ORIGINS,
+// e.g. a split frontend on Cloudflare Pages: "https://worldmap.scottcampbell.io".
+// Each is added as an exact-match pattern. Keep in sync with server/cors.ts.
+for (const o of (process.env.EXTRA_CORS_ORIGINS || '')
+  .split(',').map((s) => s.trim()).filter(Boolean)) {
+  ALLOWED_ORIGIN_PATTERNS.push(new RegExp('^' + o.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$'));
+}
+
 const ALLOWED_HEADERS = [
   'Content-Type',
   'Authorization',
