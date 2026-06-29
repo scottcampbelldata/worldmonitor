@@ -55,12 +55,11 @@ interface CachedEntitlements {
  * Tier-2 here would have made the new gate stricter than the legacy one and
  * 403'd real Pro subscribers calling via Clerk session (no tester key).
  */
-const ENDPOINT_ENTITLEMENTS: Record<string, number> = {
-  '/api/market/v1/analyze-stock': 1,
-  '/api/market/v1/get-stock-analysis-history': 1,
-  '/api/market/v1/backtest-stock': 1,
-  '/api/market/v1/list-stored-stock-backtests': 1,
-};
+// Self-hosted instance: no paid tier, so no endpoint is tier-gated. Emptying
+// this map makes getRequiredTier() return null for everything, so the gateway
+// never forces an API key / Pro session on these routes (e.g. stock analysis &
+// backtesting are free here). Restore the entries from git history to re-gate.
+const ENDPOINT_ENTITLEMENTS: Record<string, number> = {};
 
 const CONVEX_INTERNAL_ENTITLEMENTS_PATH = '/api/internal-entitlements';
 let _didWarnMissingConvexSharedSecret = false;
