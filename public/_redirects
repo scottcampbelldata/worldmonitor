@@ -1,8 +1,8 @@
-# Cloudflare Pages SPA fallback.
-# The Vite build renames index.html -> dashboard.html (the app entry lives at
-# /dashboard), so a bare "/" has no index and 404s. Serve dashboard.html for the
-# root and any path that isn't a real static asset (assets, data, favico, the
-# other HTML entry points like embed.html/settings.html are real files and are
-# served directly, taking precedence over this fallback). Mirrors the catch-all
-# rewrite in vercel.json.
-/*    /dashboard.html    200
+# Cloudflare Pages: the Vite build renames index.html -> dashboard.html, so the
+# bare "/" has no index and 404s. Redirect only the root to the clean /dashboard
+# URL (which CF serves from dashboard.html).
+#
+# NOTE: do NOT use a "/*  /dashboard.html  200" catch-all here — CF Pages
+# auto-redirects /dashboard.html -> /dashboard (308), so a catch-all rewrite to
+# /dashboard.html creates an infinite redirect loop (ERR_TOO_MANY_REDIRECTS).
+/    /dashboard    302
