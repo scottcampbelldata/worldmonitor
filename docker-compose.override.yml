@@ -1,70 +1,30 @@
 # ============================================================
-# World Monitor — deploy override (server)  [gitignored]
+# World Monitor — deploy override (server)  [tracked, no secrets]
 # ============================================================
-# Adds the API keys that the BASE docker-compose.yml does NOT already wire in,
-# so every Tier-1/Tier-2 data key actually reaches the container at runtime.
+# Wires EVERY variable from `.env` into both containers via `env_file`, so any
+# API key / credential you add to `.env` later takes effect on the next
+# `docker compose up -d` with NO further wiring. Put actual values in `.env`
+# (gitignored) next to this file on the server.
 #
-# How keys get here: put values in a `.env` file next to this one on the server
-# (docker compose auto-loads `.env`). Each ${VAR:-} below reads from that .env.
-# Then:  docker compose up -d --build
+# Base docker-compose.yml's explicit `environment:` entries still win where they
+# overlap (e.g. the internal Redis URL/token), so env_file can't clobber them.
 #
-# The base compose already passes: GROQ, OPENROUTER, AISSTREAM, FINNHUB, EIA,
-# FRED, ACLED_*, NASA_FIRMS, CLOUDFLARE, AVIATIONSTACK, TRAVELPAYOUTS, LLM_*.
-# This file adds the rest.
+# NOTE: VITE_* flags are BUILD-TIME (baked into the frontend at build), not
+# runtime env — they cannot be enabled this way. The frontend is built/served by
+# Cloudflare Pages in this split deploy, so set VITE_* in the Pages build env.
 # ============================================================
 
 services:
   worldmonitor:
+    env_file:
+      - .env
     environment:
-      # --- Split-deploy: allow the Cloudflare Pages origin through CORS ---
-      # EXTRA_CORS_ORIGINS (read by the patched api/_cors.js) adds your frontend
-      # host to the allowlist. Do NOT force NODE_ENV=production here: in this
-      # self-hosted Docker layout the local API server makes internal calls with
-      # an http://localhost origin, which production mode drops from the CORS
-      # allowlist — causing the app to 403 its own /api/* requests. Leaving
-      # NODE_ENV unset keeps localhost allowed (matches the upstream compose).
+      # Keep production mode OFF by default. NODE_ENV=production drops localhost
+      # from the CORS allowlist, which 403s the app's own internal /api calls in
+      # this self-hosted layout (see git history). .env can still set it if ever
+      # needed; this just provides the safe default when .env omits it.
       NODE_ENV: "${NODE_ENV:-}"
-      EXTRA_CORS_ORIGINS: "${EXTRA_CORS_ORIGINS:-}"
-      # Anonymous browser session signing key (min 32 chars). Without it,
-      # /api/wm-session returns 503 and session-gated data endpoints 401.
-      WM_SESSION_SECRET: "${WM_SESSION_SECRET:-}"
-
-      # --- Markets (extra) ---
-      ALPHA_VANTAGE_API_KEY: "${ALPHA_VANTAGE_API_KEY:-}"
-      COINGECKO_DEMO_API_KEY: "${COINGECKO_DEMO_API_KEY:-}"
-
-      # --- Cyber threat layer ---
-      ABUSEIPDB_API_KEY: "${ABUSEIPDB_API_KEY:-}"
-      OTX_API_KEY: "${OTX_API_KEY:-}"
-      URLHAUS_AUTH_KEY: "${URLHAUS_AUTH_KEY:-}"
-
-      # --- Air quality ---
-      OPENAQ_API_KEY: "${OPENAQ_API_KEY:-}"
-      WAQI_API_KEY: "${WAQI_API_KEY:-}"
-
-      # --- Conflict (extra) ---
-      UCDP_ACCESS_TOKEN: "${UCDP_ACCESS_TOKEN:-}"
-
-      # --- Energy / trade (EU + global) ---
-      ENTSO_E_TOKEN: "${ENTSO_E_TOKEN:-}"
-      GIE_API_KEY: "${GIE_API_KEY:-}"
-      COMTRADE_API_KEYS: "${COMTRADE_API_KEYS:-}"
-
-      # --- Climate / search / misc ---
-      WINDY_API_KEY: "${WINDY_API_KEY:-}"
-      EXA_API_KEYS: "${EXA_API_KEYS:-}"
-      RELIEFWEB_APPNAME: "${RELIEFWEB_APPNAME:-}"
-
-      # --- Optional: your Anthropic key for higher-quality briefs/forecasts ---
-      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
 
   ais-relay:
-    environment:
-      # Aircraft tracking (OpenSky) — the relay handles flights too
-      OPENSKY_CLIENT_ID: "${OPENSKY_CLIENT_ID:-}"
-      OPENSKY_CLIENT_SECRET: "${OPENSKY_CLIENT_SECRET:-}"
-
-# NOTE: VITE_* flags (e.g. VITE_ENABLE_CYBER_LAYER) are BUILD-TIME, baked into
-# the frontend during `docker build`. Setting them here as runtime env has no
-# effect. To flip them for the Docker image we pass them as build args — handled
-# in the deploy runbook, not here.
+    env_file:
+      - .env
