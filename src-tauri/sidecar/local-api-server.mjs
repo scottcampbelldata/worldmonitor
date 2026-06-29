@@ -845,6 +845,15 @@ const SIDECAR_ALLOWED_ORIGINS = [
   /^https:\/\/([a-z0-9-]+\.)?worldmonitor\.app$/,
 ];
 
+// Self-hosted split frontend: allow EXTRA_CORS_ORIGINS (comma-separated full
+// origins, e.g. https://worldmap.scottcampbell.io) to be echoed back by the
+// sidecar CORS layer. Without this the server forces a localhost origin and a
+// cross-origin browser frontend is blocked. Mirrors api/_cors.js.
+for (const o of (process.env.EXTRA_CORS_ORIGINS || '')
+  .split(',').map((s) => s.trim()).filter(Boolean)) {
+  SIDECAR_ALLOWED_ORIGINS.push(new RegExp('^' + o.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$'));
+}
+
 function getSidecarCorsOrigin(req) {
   const origin = req.headers?.origin || req.headers?.get?.('origin') || '';
   if (origin && SIDECAR_ALLOWED_ORIGINS.some(p => p.test(origin))) return origin;
@@ -854,8 +863,9 @@ function getSidecarCorsOrigin(req) {
 function makeCorsHeaders(req) {
   return {
     'Access-Control-Allow-Origin': getSidecarCorsOrigin(req),
+    'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-WorldMonitor-Desktop-Timestamp, X-WorldMonitor-Desktop-Signature',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-WorldMonitor-Desktop-Timestamp, X-WorldMonitor-Desktop-Signature, X-WorldMonitor-Key',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
