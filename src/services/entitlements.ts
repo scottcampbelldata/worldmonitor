@@ -30,8 +30,26 @@ export interface EntitlementState {
   validUntil: number;
 }
 
+// Self-hosted instance: there is no paid tier here, so every visitor gets the
+// full feature set for free. FULL_ENTITLEMENTS is the maxed-out state used as
+// the default and returned by the read helpers below. (Upstream gates premium
+// features behind Convex/Dodo entitlements; this fork unlocks them.)
+const FULL_ENTITLEMENTS: EntitlementState = {
+  planKey: 'enterprise',
+  features: {
+    tier: 999,
+    apiAccess: true,
+    apiRateLimit: Number.MAX_SAFE_INTEGER,
+    maxDashboards: Number.MAX_SAFE_INTEGER,
+    prioritySupport: true,
+    exportFormats: ['csv', 'json', 'xlsx', 'pdf'],
+    mcpAccess: true,
+  },
+  validUntil: Number.MAX_SAFE_INTEGER,
+};
+
 // Module-level state
-let currentState: EntitlementState | null = null;
+let currentState: EntitlementState | null = FULL_ENTITLEMENTS;
 const listeners = new Set<(state: EntitlementState | null) => void>();
 let initialized = false;
 let unsubscribeFn: (() => void) | null = null;
@@ -139,35 +157,33 @@ export function onEntitlementChange(
  * Returns the current entitlement state, or null if not yet loaded.
  */
 export function getEntitlementState(): EntitlementState | null {
-  return currentState;
+  // Self-hosted: always full access (never null) so consumers that read
+  // features directly (apiAccess, mcpAccess, tier) see everything unlocked.
+  return currentState ?? FULL_ENTITLEMENTS;
 }
 
 /**
  * Check whether a specific feature flag is truthy in the current entitlement state.
+ * Self-hosted: everything is unlocked.
  */
-export function hasFeature(flag: keyof EntitlementState['features']): boolean {
-  if (currentState === null) return false;
-  return Boolean(currentState.features[flag]);
+export function hasFeature(_flag: keyof EntitlementState['features']): boolean {
+  return true;
 }
 
 /**
  * Check whether the user's tier meets or exceeds the given minimum.
+ * Self-hosted: every tier is satisfied.
  */
-export function hasTier(minTier: number): boolean {
-  if (currentState === null) return false;
-  return currentState.features.tier >= minTier;
+export function hasTier(_minTier: number): boolean {
+  return true;
 }
 
 /**
  * Simple "is this a paying user" check.
- * Returns true if entitlement data exists, plan is not free, and hasn't expired.
+ * Self-hosted: everyone is treated as entitled (no paid tier on this instance).
  */
 export function isEntitled(): boolean {
-  return (
-    currentState !== null &&
-    currentState.planKey !== 'free' &&
-    currentState.validUntil >= Date.now()
-  );
+  return true;
 }
 
 /**
