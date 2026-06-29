@@ -18,7 +18,7 @@ export type CartoTheme = 'dark-matter' | 'voyager' | 'positron';
 export const FALLBACK_DARK_STYLE = 'https://tiles.openfreemap.org/styles/dark';
 export const FALLBACK_LIGHT_STYLE = 'https://tiles.openfreemap.org/styles/positron';
 
-export type MapProvider = 'auto' | 'pmtiles' | 'openfreemap' | 'carto';
+export type MapProvider = 'auto' | 'pmtiles' | 'openfreemap' | 'carto' | 'satellite';
 
 const STORAGE_KEY = 'wm-map-provider';
 const THEME_STORAGE_PREFIX = 'wm-map-theme:';
@@ -31,6 +31,7 @@ export const MAP_PROVIDER_OPTIONS: { value: MapProvider; label: string }[] = (()
     opts.push({ value: 'auto', label: 'Auto (PMTiles → OpenFreeMap fallback)' });
     opts.push({ value: 'pmtiles', label: 'PMTiles (self-hosted)' });
   }
+  opts.push({ value: 'satellite', label: 'Satellite (Esri imagery)' });
   opts.push({ value: 'openfreemap', label: 'OpenFreeMap' });
   opts.push({ value: 'carto', label: 'CARTO' });
   return opts;
@@ -56,6 +57,10 @@ export const MAP_THEME_OPTIONS: Record<MapProvider, { value: string; label: stri
     { value: 'voyager', label: 'Voyager (light)' },
     { value: 'positron', label: 'Positron (light)' },
   ],
+  satellite: [
+    { value: 'hybrid', label: 'Satellite + labels' },
+    { value: 'imagery', label: 'Satellite (no labels)' },
+  ],
 };
 
 const DEFAULT_THEME: Record<MapProvider, string> = {
@@ -63,6 +68,7 @@ const DEFAULT_THEME: Record<MapProvider, string> = {
   auto: 'black',
   openfreemap: 'dark',
   carto: 'dark-matter',
+  satellite: 'hybrid',
 };
 
 export function getMapProvider(): MapProvider {
@@ -73,7 +79,8 @@ export function getMapProvider(): MapProvider {
     }
     return stored;
   }
-  return hasTilesUrl ? 'auto' : 'openfreemap';
+  // Default to satellite imagery (Esri) for a realistic, Google-Earth-like map.
+  return 'satellite';
 }
 
 export function setMapProvider(provider: MapProvider): void {

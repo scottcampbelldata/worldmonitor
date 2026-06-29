@@ -67,6 +67,42 @@ const CARTO_STYLES: Record<string, string> = {
   'positron': CARTO_POSITRON,
 };
 
+// Esri World Imagery — free satellite/aerial raster tiles (no API key). The
+// "hybrid" theme adds Esri's transparent boundaries + place-labels overlay for
+// a Google-Earth-like look. Note Esri tile URLs are {z}/{y}/{x}.
+const ESRI_IMAGERY_TILES =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const ESRI_REFERENCE_TILES =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}';
+const ESRI_ATTRIBUTION =
+  'Imagery &copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics, and the GIS User Community';
+
+function buildSatelliteStyle(mapTheme: string): StyleSpecification {
+  const withLabels = mapTheme !== 'imagery'; // 'hybrid' (default) shows labels
+  const sources: StyleSpecification['sources'] = {
+    'esri-imagery': {
+      type: 'raster',
+      tiles: [ESRI_IMAGERY_TILES],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution: ESRI_ATTRIBUTION,
+    },
+  };
+  const layers: StyleSpecification['layers'] = [
+    { id: 'esri-imagery', type: 'raster', source: 'esri-imagery' },
+  ];
+  if (withLabels) {
+    sources['esri-reference'] = {
+      type: 'raster',
+      tiles: [ESRI_REFERENCE_TILES],
+      tileSize: 256,
+      maxzoom: 19,
+    };
+    layers.push({ id: 'esri-reference', type: 'raster', source: 'esri-reference' });
+  }
+  return { version: 8, glyphs: 'https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf', sources, layers };
+}
+
 async function tryBuildRegisteredPMTilesStyle(flavor: PMTilesTheme): Promise<StyleSpecification | null> {
   try {
     const style = await buildPMTilesStyle(flavor);
@@ -91,6 +127,8 @@ export async function getStyleForProvider(provider: MapProvider, mapTheme: strin
       return mapTheme === 'positron' ? FALLBACK_LIGHT_STYLE : FALLBACK_DARK_STYLE;
     case 'carto':
       return CARTO_STYLES[mapTheme] ?? CARTO_DARK;
+    case 'satellite':
+      return buildSatelliteStyle(mapTheme);
     default: {
       const pmtiles = await tryBuildRegisteredPMTilesStyle(asPMTilesTheme(mapTheme));
       return pmtiles ?? (lightFallback ? FALLBACK_LIGHT_STYLE : FALLBACK_DARK_STYLE);
