@@ -25,6 +25,9 @@ services:
       # NODE_ENV unset keeps localhost allowed (matches the upstream compose).
       NODE_ENV: "${NODE_ENV:-}"
       EXTRA_CORS_ORIGINS: "${EXTRA_CORS_ORIGINS:-}"
+      # Anonymous browser session signing key (min 32 chars). Without it,
+      # /api/wm-session returns 503 and session-gated data endpoints 401.
+      WM_SESSION_SECRET: "${WM_SESSION_SECRET:-}"
 
       # --- Markets (extra) ---
       ALPHA_VANTAGE_API_KEY: "${ALPHA_VANTAGE_API_KEY:-}"
