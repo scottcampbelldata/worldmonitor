@@ -16,10 +16,14 @@
 services:
   worldmonitor:
     environment:
-      # --- Split-deploy: production mode + allow the Cloudflare Pages origin ---
-      # CORS allowlist is tight by default (*.worldmonitor.app); EXTRA_CORS_ORIGINS
-      # (read by the patched api/_cors.js) lets your frontend host through.
-      NODE_ENV: "${NODE_ENV:-production}"
+      # --- Split-deploy: allow the Cloudflare Pages origin through CORS ---
+      # EXTRA_CORS_ORIGINS (read by the patched api/_cors.js) adds your frontend
+      # host to the allowlist. Do NOT force NODE_ENV=production here: in this
+      # self-hosted Docker layout the local API server makes internal calls with
+      # an http://localhost origin, which production mode drops from the CORS
+      # allowlist — causing the app to 403 its own /api/* requests. Leaving
+      # NODE_ENV unset keeps localhost allowed (matches the upstream compose).
+      NODE_ENV: "${NODE_ENV:-}"
       EXTRA_CORS_ORIGINS: "${EXTRA_CORS_ORIGINS:-}"
 
       # --- Markets (extra) ---
